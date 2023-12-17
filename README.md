@@ -51,4 +51,9 @@ Discord - [Arbitrum](https://discord.com/invite/5KE54JwyTs)
 
 Twitter: [Arbitrum](https://twitter.com/arbitrum)
 
+## Attributions
+
+We are building in public and this code is not ready for wider consumption yet.
+
+We based this code off of the [Celestia integration](https://github.com/celestiaorg/nitro) of the same nature. 
 
