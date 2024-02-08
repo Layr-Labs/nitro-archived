@@ -44,6 +44,7 @@ require (
 	golang.org/x/sys v0.13.0
 	golang.org/x/term v0.13.0
 	golang.org/x/tools v0.9.1
+	google.golang.org/grpc v1.59.0
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 )
 
@@ -289,7 +290,6 @@ require (
 	google.golang.org/genproto v0.0.0-20231016165738-49dd2c1f3d0b // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20231012201019-e917dd12ba7a // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231030173426-d783a09b4405 // indirect
-	google.golang.org/grpc v1.59.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/square/go-jose.v2 v2.5.1 // indirect
 	lukechampine.com/blake3 v1.1.7 // indirect
@@ -307,7 +307,7 @@ require (
 )
 
 require (
-	github.com/Layr-Labs/eigenda/api v0.1.1
+	github.com/Layr-Labs/eigenda/api v0.3.0
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
 	github.com/VictoriaMetrics/fastcache v1.6.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
