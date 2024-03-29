@@ -112,9 +112,6 @@ func (e *EigenDA) QueryBlob(ctx context.Context, ref *EigenDARef) ([]byte, error
 func (e *EigenDA) Store(ctx context.Context, data []byte) (*EigenDARef, error) {
 	disperseBlobRequest := &disperser.DisperseBlobRequest{
 		Data: data,
-		SecurityParams: []*disperser.SecurityParams{
-			{QuorumId: 0, AdversaryThreshold: 25, QuorumThreshold: 50},
-		},
 	}
 
 	res, err := e.client.DisperseBlob(ctx, disperseBlobRequest)
