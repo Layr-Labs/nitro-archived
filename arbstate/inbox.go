@@ -101,22 +101,22 @@ func parseSequencerMessage(ctx context.Context, batchNum uint64, batchBlockHash 
 		foundDA := false
 		var err error
 
-		// detect eigenda message from byte
-		if eigenda.IsEigenDAMessageHeaderByte(payload[0]) {
-			if eigenDAReader == nil {
-				log.Error("No EigenDA Reader configured, but sequencer message found with EigenDA header")
-			} else {
-				var err error
-				payload, err = eigenda.RecoverPayloadFromEigenDABatch(ctx, payload[1:], eigenDAReader, nil)
-				if err != nil {
-					return nil, err
-				}
-				if payload == nil {
-					return parsedMsg, nil
-				}
-				foundDA = true
-			}
-		}
+		// // detect eigenda message from byte
+		// if eigenda.IsEigenDAMessageHeaderByte(payload[0]) {
+		// 	if eigenDAReader == nil {
+		// 		log.Error("No EigenDA Reader configured, but sequencer message found with EigenDA header")
+		// 	} else {
+		// 		var err error
+		// 		payload, err = eigenda.RecoverPayloadFromEigenDABatch(ctx, payload[1:], eigenDAReader, nil)
+		// 		if err != nil {
+		// 			return nil, err
+		// 		}
+		// 		if payload == nil {
+		// 			return parsedMsg, nil
+		// 		}
+		// 		foundDA = true
+		// 	}
+		// }
 
 		for _, provider := range daProviders {
 			if provider != nil && provider.IsValidHeaderByte(payload[0]) {
@@ -383,6 +383,25 @@ func (b *dAProviderForBlobReader) RecoverPayloadFromBatch(
 		return nil, nil
 	}
 	return payload, nil
+}
+
+type daProviderForEigenDA struct {
+	eigenDAReader eigenda.EigenDAReader
+}
+
+func (e *daProviderForEigenDA) IsValidHeaderByte(headerByte byte) bool {
+	return eigenda.IsEigenDAMessageHeaderByte(headerByte)
+}
+
+func (e *daProviderForEigenDA) RecoverPayloadFromBatch(
+	ctx context.Context,
+	batchNum uint64,
+	batchBlockHash common.Hash,
+	sequencerMsg []byte,
+	preimages map[arbutil.PreimageType]map[common.Hash][]byte,
+	keysetValidationMode KeysetValidationMode,
+) ([]byte, error) {
+	return eigenda.RecoverPayloadFromEigenDABatch(ctx, sequencerMsg[41:], e.eigenDAReader, preimages)
 }
 
 type KeysetValidationMode uint8
