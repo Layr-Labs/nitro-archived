@@ -12,7 +12,8 @@ replace github.com/cockroachdb/pebble => github.com/cockroachdb/pebble v0.0.0-20
 
 require (
 	github.com/Knetic/govaluate v3.0.1-0.20171022003610-9aa49832a739+incompatible
-	github.com/Layr-Labs/eigenda v0.6.0
+	github.com/Layr-Labs/eigenda v0.6.1
+	github.com/Layr-Labs/eigenda/api v0.6.1
 	github.com/Shopify/toxiproxy v2.1.4+incompatible
 	github.com/alicebob/miniredis/v2 v2.21.0
 	github.com/andybalholm/brotli v1.0.4
@@ -312,7 +313,6 @@ require (
 )
 
 require (
-	github.com/Layr-Labs/eigenda/api v0.6.0
 	github.com/StackExchange/wmi v1.2.1 // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
