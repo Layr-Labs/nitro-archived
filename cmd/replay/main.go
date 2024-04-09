@@ -232,12 +232,12 @@ func main() {
 			keysetValidationMode = arbstate.KeysetDontValidate
 		}
 		var daProviders []arbstate.DataAvailabilityProvider
-		// TODO: add dasReader of type eigenda.EigenDAReader when it conforms to interface
-		// if dasReader != nil {
-		// 	daProviders = append(daProviders, arbstate.NewDAProviderDAS(dasReader))
-		// }
+
+		if dasReader != nil {
+			daProviders = append(daProviders, arbstate.NewDAProviderEigenDA(dasReader))
+		}
 		daProviders = append(daProviders, arbstate.NewDAProviderBlobReader(&BlobPreimageReader{}))
-		inboxMultiplexer := arbstate.NewInboxMultiplexer(backend, delayedMessagesRead, daProviders, dasReader, keysetValidationMode)
+		inboxMultiplexer := arbstate.NewInboxMultiplexer(backend, delayedMessagesRead, daProviders, keysetValidationMode)
 		ctx := context.Background()
 		message, err := inboxMultiplexer.Pop(ctx)
 		if err != nil {
