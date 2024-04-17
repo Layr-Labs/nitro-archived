@@ -82,6 +82,8 @@ func parseSequencerMessage(ctx context.Context, batchNum uint64, batchBlockHash 
 		afterDelayedMessages: binary.BigEndian.Uint64(data[32:40]),
 		segments:             [][]byte{},
 	}
+
+	// payload is the rest of the data after the header
 	payload := data[40:]
 	log.Info("Inbox parse sequencer message: ", "payload", hex.EncodeToString(payload))
 
@@ -392,6 +394,7 @@ func (e *daProviderForEigenDA) RecoverPayloadFromBatch(
 	preimages map[arbutil.PreimageType]map[common.Hash][]byte,
 	keysetValidationMode KeysetValidationMode,
 ) ([]byte, error) {
+	// we start from the 41st byte of sequencerMsg because bytes 0 - 40 are the header, and 40 - 41 is the eigenDA header flag
 	return eigenda.RecoverPayloadFromEigenDABatch(ctx, sequencerMsg[41:], e.eigenDAReader, preimages)
 }
 

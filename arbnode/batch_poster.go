@@ -64,8 +64,9 @@ var (
 const (
 	batchPosterSimpleRedisLockKey = "node.batch-poster.redis-lock.simple-lock-key"
 
-	sequencerBatchPostMethodName          = "addSequencerL2BatchFromOrigin0"
-	sequencerBatchPostWithBlobsMethodName = "addSequencerL2BatchFromBlobs"
+	sequencerBatchPostMethodName            = "addSequencerL2BatchFromOrigin0"
+	sequencerBatchPostWithBlobsMethodName   = "addSequencerL2BatchFromBlobs"
+	sequencerBatchPostWithEigendaMethodName = "addSequencerL2BatchFromEigenDA"
 )
 
 type batchPosterPosition struct {
@@ -847,11 +848,18 @@ func (b *BatchPoster) encodeAddBatch(
 	l2MessageData []byte,
 	delayedMsg uint64,
 	use4844 bool,
+	useEigenDA bool,
+	eigenDaBlobInfo *eigenda.EigenDABlobInfo,
 ) ([]byte, []kzg4844.Blob, error) {
 	methodName := sequencerBatchPostMethodName
 	if use4844 {
 		methodName = sequencerBatchPostWithBlobsMethodName
 	}
+
+	if useEigenDA {
+		methodName = sequencerBatchPostWithEigendaMethodName
+	}
+
 	method, ok := b.seqInboxABI.Methods[methodName]
 	if !ok {
 		return nil, nil, errors.New("failed to find add batch method")
@@ -859,7 +867,19 @@ func (b *BatchPoster) encodeAddBatch(
 	var calldata []byte
 	var kzgBlobs []kzg4844.Blob
 	var err error
-	if use4844 {
+
+	if useEigenDA {
+		calldata, err = method.Inputs.Pack(
+			seqNum,
+			eigenDaBlobInfo.BlobVerificationProof,
+			eigenDaBlobInfo.BlobHeader,
+			new(big.Int).SetUint64(delayedMsg),
+			b.config().gasRefunder,
+			new(big.Int).SetUint64(uint64(prevMsgNum)),
+			new(big.Int).SetUint64(uint64(newMsgNum)),
+		)
+		kzgBlobs, err = blobs.EncodeBlobs(l2MessageData)
+	} else if use4844 {
 		kzgBlobs, err = blobs.EncodeBlobs(l2MessageData)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to encode blobs: %w", err)
@@ -907,7 +927,7 @@ func estimateGas(client rpc.ClientInterface, ctx context.Context, params estimat
 	return uint64(gas), err
 }
 
-func (b *BatchPoster) estimateGas(ctx context.Context, sequencerMessage []byte, delayedMessages uint64, realData []byte, realBlobs []kzg4844.Blob, realNonce uint64, realAccessList types.AccessList) (uint64, error) {
+func (b *BatchPoster) estimateGas(ctx context.Context, sequencerMessage []byte, delayedMessages uint64, realData []byte, realBlobs []kzg4844.Blob, realNonce uint64, realAccessList types.AccessList, eigenDaBlobInfo *eigenda.EigenDABlobInfo) (uint64, error) {
 	config := b.config()
 	rpcClient := b.l1Reader.Client()
 	rawRpcClient := rpcClient.Client()
@@ -949,7 +969,7 @@ func (b *BatchPoster) estimateGas(ctx context.Context, sequencerMessage []byte, 
 	// However, we set nextMsgNum to 1 because it is necessary for a correct estimation for the final to be non-zero.
 	// Because we're likely estimating against older state, this might not be the actual next message,
 	// but the gas used should be the same.
-	data, kzgBlobs, err := b.encodeAddBatch(abi.MaxUint256, 0, 1, sequencerMessage, delayedMessages, len(realBlobs) > 0)
+	data, kzgBlobs, err := b.encodeAddBatch(abi.MaxUint256, 0, 1, sequencerMessage, delayedMessages, len(realBlobs) > 0, true, eigenDaBlobInfo)
 	if err != nil {
 		return 0, err
 	}
@@ -1224,9 +1244,12 @@ func (b *BatchPoster) maybePostSequencerBatch(ctx context.Context) (bool, error)
 		}
 	}
 
+	var blobInfo *eigenda.EigenDABlobInfo
+	var blobID *eigenda.EigenDABlobID
+
 	if b.daWriter == nil && b.eigenDAWriter != nil {
 		log.Info("Start to write data to eigenda: ", "data", hex.EncodeToString(sequencerMsg))
-		daRef, err := b.eigenDAWriter.Store(ctx, sequencerMsg)
+		blobID, blobInfo, err = b.eigenDAWriter.Store(ctx, sequencerMsg)
 		if err != nil {
 			if config.DisableEigenDAFallbackStoreDataOnChain {
 				log.Warn("Falling back to storing data on chain", "err", err)
@@ -1234,16 +1257,16 @@ func (b *BatchPoster) maybePostSequencerBatch(ctx context.Context) (bool, error)
 			}
 		}
 
-		pointer, err := b.eigenDAWriter.Serialize(daRef)
+		pointer, err := b.eigenDAWriter.Serialize(blobID)
 		if err != nil {
 			log.Warn("DaRef serialization failed", "err", err)
 			return false, errors.New("DaRef serialization failed")
 		}
-		log.Info("EigenDA transaction receipt(data pointer): ", "hash", hex.EncodeToString(daRef.BatchHeaderHash), "index", daRef.BlobIndex)
+		log.Info("EigenDA transaction receipt(data pointer): ", "hash", hex.EncodeToString(blobID.BatchHeaderHash), "index", blobID.BlobIndex)
 		sequencerMsg = pointer
 	}
 
-	data, kzgBlobs, err := b.encodeAddBatch(new(big.Int).SetUint64(batchPosition.NextSeqNum), batchPosition.MessageCount, b.building.msgCount, sequencerMsg, b.building.segments.delayedMsg, b.building.use4844)
+	data, kzgBlobs, err := b.encodeAddBatch(new(big.Int).SetUint64(batchPosition.NextSeqNum), batchPosition.MessageCount, b.building.msgCount, sequencerMsg, b.building.segments.delayedMsg, b.building.use4844, true, blobInfo)
 	if err != nil {
 		return false, err
 	}
@@ -1258,7 +1281,7 @@ func (b *BatchPoster) maybePostSequencerBatch(ctx context.Context) (bool, error)
 	// In theory, this might reduce gas usage, but only by a factor that's already
 	// accounted for in `config.ExtraBatchGas`, as that same factor can appear if a user
 	// posts a new delayed message that we didn't see while gas estimating.
-	gasLimit, err := b.estimateGas(ctx, sequencerMsg, lastPotentialMsg.DelayedMessagesRead, data, kzgBlobs, nonce, accessList)
+	gasLimit, err := b.estimateGas(ctx, sequencerMsg, lastPotentialMsg.DelayedMessagesRead, data, kzgBlobs, nonce, accessList, blobInfo)
 	if err != nil {
 		return false, err
 	}
