@@ -281,5 +281,13 @@ pub fn hash_preimage(preimage: &[u8], ty: PreimageType) -> Result<[u8; 32]> {
             commitment_hash[0] = 1;
             Ok(commitment_hash)
         }
+        PreimageType::EigenDAHash => {
+            println!("Generating EigenDA preimage type");
+
+            let hash: [u8; 32] = Sha256::digest(preimage).into();
+            println!("Generated preimage hash {:?}", hash);
+            // TODO: Add support for generati ng hashes for an eigenDA kzg commitment
+            Ok(hash)
+        }
     }
 }

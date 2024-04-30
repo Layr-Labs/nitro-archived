@@ -187,10 +187,10 @@ func RecoverPayloadFromEigenDABatch(ctx context.Context,
 	log.Info("Start recovering payload from eigenda: ", "data", hex.EncodeToString(sequencerMsg))
 	var shaPreimages map[common.Hash][]byte
 	if preimages != nil {
-		if preimages[arbutil.Sha2_256PreimageType] == nil {
-			preimages[arbutil.Sha2_256PreimageType] = make(map[common.Hash][]byte)
+		if preimages[arbutil.EigenDaPreimageType] == nil {
+			preimages[arbutil.EigenDaPreimageType] = make(map[common.Hash][]byte)
 		}
-		shaPreimages = preimages[arbutil.Sha2_256PreimageType]
+		shaPreimages = preimages[arbutil.EigenDaPreimageType]
 	}
 	var daRef EigenDARef
 	daRef.BlobIndex = binary.BigEndian.Uint32(sequencerMsg[:4])

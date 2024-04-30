@@ -2322,6 +2322,11 @@ impl Machine {
                                 prove_kzg_preimage(hash, &preimage, offset, &mut data)
                                     .expect("Failed to generate KZG preimage proof");
                             }
+                            PreimageType::EigenDAHash => {
+                                // TODO - Add eigenDA kzg preimage verification here
+                                println!("Generating proof for EigenDA preimage");
+                                data.extend(preimage);
+                            }
                         }
                     } else if next_inst.opcode == Opcode::ReadInboxMessage {
                         let msg_idx = self

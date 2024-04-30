@@ -166,6 +166,9 @@ fn main() -> Result<()> {
                 .insert(hash.into(), buf.as_slice().into());
         }
     }
+    // output preimage oracle
+    println!("preimages {:?}", preimages);
+
     let preimage_resolver =
         Arc::new(move |_, ty, hash| preimages.get(&ty).and_then(|m| m.get(&hash)).cloned())
             as PreimageResolver;
