@@ -26,7 +26,7 @@ def kzg_test_data():
 
 def eigen_test_data():
     data = []
-    # generate ten 32 byte words to constitute dummy blob data
+    # generate a 32 byte blob
     for i in range(0, 1):
         bytes_64 = bytearray(hashlib.sha512(bytes(str(i), encoding='utf8')).digest())
         bytes_32 = bytes_64[0:32]
