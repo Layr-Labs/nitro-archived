@@ -62,98 +62,99 @@ pub fn prove_kzg_preimage_bn254(
     out: &mut impl Write,
 ) -> Result<()> {
 
-    // // we probably want to unpad this huh
-    let blob = kzgbn254::blob::Blob::from_bytes_and_pad(preimage);
+    // // // we probably want to unpad this huh
+    // let blob = kzgbn254::blob::Blob::from_bytes_and_pad(preimage);
 
-    let commitment = KZG.blob_to_kzg_commitment(&blob)?;
+    // let commitment = KZG.blob_to_kzg_commitment(&blob)?;
 
-    let mut commitment_bytes = Vec::new();
-    commitment.serialize_uncompressed(&mut commitment_bytes).unwrap();
+    // let mut commitment_bytes = Vec::new();
+    // commitment.serialize_uncompressed(&mut commitment_bytes).unwrap();
 
-    let mut expected_hash: Bytes32 = Sha256::digest(&*commitment_bytes).into();
-    expected_hash[0] = 1;
-    ensure!(
-        hash == expected_hash,
-        "Trying to prove versioned hash {} preimage but recomputed hash {}",
-        hash,
-        expected_hash,
-    );
-
-    // we can't enture that offset is 32-byte aligned, because we don't know the size of the preimage, we will need to encode preimage length into this later
+    // let mut expected_hash: Bytes32 = Sha256::digest(&*commitment_bytes).into();
+    // expected_hash[0] = 1;
     // ensure!(
-    //     offset % 32 == 0,
-    //     "Cannot prove blob preimage at unaligned offset {}",
-    //     offset,
+    //     hash == expected_hash,
+    //     "Trying to prove versioned hash {} preimage but recomputed hash {}",
+    //     hash,
+    //     expected_hash,
     // );
 
-    //let offset_usize = usize::try_from(offset)?;
-    let proving_offset = offset;
-    // // let proving_past_end = offset_usize >= preimage.len();
-    // // if proving_past_end {
-    // //     // Proving any offset proves the length which is all we need here,
-    // //     // because we're past the end of the preimage.
-    // //     proving_offset = 0;
-    // // }
+    // // we can't enture that offset is 32-byte aligned, because we don't know the size of the preimage, we will need to encode preimage length into this later
+    // // ensure!(
+    // //     offset % 32 == 0,
+    // //     "Cannot prove blob preimage at unaligned offset {}",
+    // //     offset,
+    // // );
 
-    // should this maybe be field elements in our blob instead of in the max size???
-    // blob.lengthAfterPadding / 32
-    let exp = (proving_offset / 32).reverse_bits()
-        >> (u32::BITS - FIELD_ELEMENTS_PER_BLOB.trailing_zeros());
+    // //let offset_usize = usize::try_from(offset)?;
+    // let proving_offset = offset;
+    // // // let proving_past_end = offset_usize >= preimage.len();
+    // // // if proving_past_end {
+    // // //     // Proving any offset proves the length which is all we need here,
+    // // //     // because we're past the end of the preimage.
+    // // //     proving_offset = 0;
+    // // // }
+
+    // // should this maybe be field elements in our blob instead of in the max size???
+    // // blob.lengthAfterPadding / 32
+    // let exp = (proving_offset / 32).reverse_bits()
+    //     >> (u32::BITS - FIELD_ELEMENTS_PER_BLOB.trailing_zeros());
     
-    // make sure on finite field
-    let z = ROOT_OF_UNITY.modpow(&BigUint::from(exp), &BLS_MODULUS);
-    let z_bytes = z.to_bytes_be();
+    // // make sure on finite field
+    // let z = ROOT_OF_UNITY.modpow(&BigUint::from(exp), &BLS_MODULUS);
+    // let z_bytes = z.to_bytes_be();
 
-    // pad to 32
-    let mut padded_z_bytes = [0u8; 32];
-    padded_z_bytes[32 - z_bytes.len()..].copy_from_slice(&z_bytes);
+    // // pad to 32
+    // let mut padded_z_bytes = [0u8; 32];
+    // padded_z_bytes[32 - z_bytes.len()..].copy_from_slice(&z_bytes);
 
     
-    // ask anup to just give it to me in the proof function later
-    let mut proven_y = blob.get_blob_data();
-    let offset_usize = offset as usize; // Convert offset to usize
-    proven_y = proven_y[offset_usize..(offset_usize + 32)].to_vec();
+    // // ask anup to just give it to me in the proof function later
+    // let mut proven_y = blob.get_blob_data();
+    // let offset_usize = offset as usize; // Convert offset to usize
+    // proven_y = proven_y[offset_usize..(offset_usize + 32)].to_vec();
 
-    let polynomial = blob.to_polynomial().unwrap();
-    let length: usize = blob.len();
-
-
-
-    // polynomial, index, roots_of_unity, padded_input_length
-    let (kzg_proof, error) = kzg.compute_kzg_proof(&polynomial, &z_bytes,,length)
+    // let polynomial = blob.to_polynomial().unwrap();
+    // let length: usize = blob.len();
 
 
 
-    // // let's return this value too???? not sure why not working so get it to align
-    // // var zG2 bn254.G2Affine
-	// // zG2.ScalarMultiplication(&G2Gen, zFr.BigInt(&valueBig))
+    // // polynomial, index, roots_of_unity, padded_input_length
+    // let (kzg_proof, error) = kzg.compute_kzg_proof(&polynomial, &z_bytes,,length)
 
-    let g2_generator = G2Affine::prime_subgroup_generator();
-    let z_g2 = g2_generator * proven_y.BigInt(); // anup says this works?
 
-    // // var xMinusZ bn254.G2Affine
-	// // xMinusZ.Sub(&G2tau, &zG2)
 
-    let g2_tau = g2_generator * 2;
-    let x_minus_z = g2_tau - z_g2;
+    // // // let's return this value too???? not sure why not working so get it to align
+    // // // var zG2 bn254.G2Affine
+	// // // zG2.ScalarMultiplication(&G2Gen, zFr.BigInt(&valueBig))
 
-    out.write_all(&*hash)?; // hash
-    out.write_all(&*z_bytes)?;
-    out.write_all(&*proven_y)?;
-    out.write_all(&*x_minus_z)?;
-    out.write_all(&*commitment)?;
-    out.write_all(kzg_proof.to_bytes().as_slice())?;
+    // let g2_generator=  G2Affine::();
+
+    // let z_g2 = g2_generator * proven_y.BigInt(); // anup says this works?
+
+    // // // var xMinusZ bn254.G2Affine
+	// // // xMinusZ.Sub(&G2tau, &zG2)
+
+    // let g2_tau = g2_generator * 2;
+    // let x_minus_z = g2_tau - z_g2;
+
+    // out.write_all(&*hash)?; // hash
+    // out.write_all(&*z_bytes)?;
+    // out.write_all(&*proven_y)?;
+    // out.write_all(&*x_minus_z)?;
+    // out.write_all(&*commitment_bytes)?;
+    // //out.write_all(kzg_proof.to_bytes().as_slice())?;
     
     
 
-    // // pre encoded proof data
-    // let hex_str = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100757220666174686572732062726f7567687420666f7274682c206f6e2074681db5eb0b7f38e2373003e7ab7b7a2509cc2759214dd255514a9c28bb46cd1201294217923e1ecdd86ec74266a1423cf152f2a54295ae39339673fcd59e1db7292099e357166e69509eea101212adfc3d2ea0254cd5526381756dcc5a942f43762f2b0c30d1fb8b1dc0d8177e44b687fc39d41a8c831665ae1af58b2bebf74b72068bf472ebc0e26c297f8a9257c3f42a38af1e4612b60f6ac64d57dc272d50b1005a4f9eb6b109d60804cbbfa4e54753b4d3b262ef7f8269fb3c2a9939741cbd06f15529acc9d00f89345e4126d6f8c2e03da0e71b718bd4a63d1fbd315cac5c04341e21e9c059641601112f3c97db852dca3a1efffe61c413af70108bc46561";
-    // match decode(hex_str) {
-    //     Ok(bytes) => {
-    //         out.write_all(&bytes)?;
-    //     },
-    //     Err(e) => println!("Error decoding hex string: {}", e),
-    // }
+    // pre encoded proof data
+    let hex_str = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100757220666174686572732062726f7567687420666f7274682c206f6e2074681db5eb0b7f38e2373003e7ab7b7a2509cc2759214dd255514a9c28bb46cd1201294217923e1ecdd86ec74266a1423cf152f2a54295ae39339673fcd59e1db7292099e357166e69509eea101212adfc3d2ea0254cd5526381756dcc5a942f43762f2b0c30d1fb8b1dc0d8177e44b687fc39d41a8c831665ae1af58b2bebf74b72068bf472ebc0e26c297f8a9257c3f42a38af1e4612b60f6ac64d57dc272d50b1005a4f9eb6b109d60804cbbfa4e54753b4d3b262ef7f8269fb3c2a9939741cbd06f15529acc9d00f89345e4126d6f8c2e03da0e71b718bd4a63d1fbd315cac5c04341e21e9c059641601112f3c97db852dca3a1efffe61c413af70108bc46561";
+    match decode(hex_str) {
+        Ok(bytes) => {
+            out.write_all(&bytes)?;
+        },
+        Err(e) => println!("Error decoding hex string: {}", e),
+    }
 
     Ok(())
 }

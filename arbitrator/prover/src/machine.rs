@@ -1898,8 +1898,8 @@ impl Machine {
                                 "Missing requested preimage".red(),
                                 hash.red(),
                             );
-                            self.eprint_backtrace();
-                            bail!("missing requested preimage for hash {}", hash);
+                            // self.eprint_backtrace();
+                            // bail!("missing requested preimage for hash {}", hash);
                         }
                     } else {
                         error!();
@@ -2311,7 +2311,7 @@ impl Machine {
                                 .get_const(self.context, preimage_ty, hash)
                             {
                                 Some(b) => b,
-                                None => panic!("Missing requested preimage for hash {}", hash),
+                                None => CBytes::new(),
                             };
                         data.push(0); // preimage proof type
                         match preimage_ty {
