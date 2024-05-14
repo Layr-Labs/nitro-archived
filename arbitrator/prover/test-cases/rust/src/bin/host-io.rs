@@ -106,6 +106,7 @@ fn main() {
 
         println!("eigenda preimage");
         let eigen_hash = hex!("b071b0cf4fc3288ada3977d7b5b0ff621d238f0f8bebb1def70cf7cf0aa59f41");
+        
         bytebuffer = Bytes32(eigen_hash);
         let expected_len = 32;
 
