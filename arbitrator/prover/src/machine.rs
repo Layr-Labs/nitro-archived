@@ -1886,6 +1886,12 @@ impl Machine {
                                     preimage.len(),
                                 );
                             }
+
+                            if preimage_ty == PreimageType::EigenDAHash {
+                                println!("EIGENDA HASH PREIMAGE: {:?}", preimage);
+                            }
+
+
                             let offset = usize::try_from(offset).unwrap();
                             let len = std::cmp::min(32, preimage.len().saturating_sub(offset));
                             let read = preimage.get(offset..(offset + len)).unwrap_or_default();

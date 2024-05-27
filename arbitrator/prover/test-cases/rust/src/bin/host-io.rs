@@ -105,8 +105,8 @@ fn main() {
         }
 
         println!("eigenda preimage");
-        let eigen_hash = hex!("b071b0cf4fc3288ada3977d7b5b0ff621d238f0f8bebb1def70cf7cf0aa59f41");
-        //let eigen_hash = hex!("0115550c37432fd41441956b06b83722bf797452eb47ea5d03386932ca84762d");
+        //let eigen_hash = hex!("b071b0cf4fc3288ada3977d7b5b0ff621d238f0f8bebb1def70cf7cf0aa59f41");
+        let eigen_hash = hex!("0115550c37432fd41441956b06b83722bf797452eb47ea5d03386932ca84762d");
         
         bytebuffer = Bytes32(eigen_hash);
         let expected_len = 32;

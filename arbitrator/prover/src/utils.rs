@@ -314,6 +314,8 @@ pub fn hash_preimage(preimage: &[u8], ty: PreimageType) -> Result<[u8; 32]> {
             let mut commitment_hash: [u8; 32] = Sha256::digest(&commitment_bytes).into();
             commitment_hash[0] = 1;
 
+            println!("commitment_hash UTILS.rs: {:?}", commitment_hash);
+
             Ok(commitment_hash)
 
             //Ok(Sha256::digest(preimage).into())

@@ -92,6 +92,9 @@ pub fn prove_kzg_preimage_bn254(
     let unpadded_preimage_vec = remove_empty_byte_from_padded_bytes(preimage);
     let unpadded_preimage = unpadded_preimage_vec.as_slice();
 
+    println!("UNPADDED PREIMAGE: {:?}", unpadded_preimage);
+    println!("PREIMAGE: {:?}", preimage);
+
     // repad it here, TODO: need to ask to change the interface for this
     let blob = kzgbn254::blob::Blob::from_bytes_and_pad(unpadded_preimage);
     let blob_polynomial = blob.to_polynomial().unwrap();
@@ -105,12 +108,12 @@ pub fn prove_kzg_preimage_bn254(
 
     println!("Expected hash: {:?}", expected_hash);
     println!("Hash: {:?}", hash);
-    // ensure!(
-    //     hash == expected_hash,
-    //     "Trying to prove versioned hash {} preimage but recomputed hash {}",
-    //     hash,
-    //     expected_hash,
-    // );
+    ensure!(
+        hash == expected_hash,
+        "Trying to prove versioned hash {} preimage but recomputed hash {}",
+        hash,
+        expected_hash,
+    );
 
     ensure!(
         offset % 32 == 0,

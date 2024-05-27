@@ -32,8 +32,7 @@ def eigen_test_data():
     # generate a 32 byte blob
     for i in range(0, 1):
         bytes_64 = bytearray(hashlib.sha512(bytes(str(i), encoding='utf8')).digest())
-        scalar = int.from_bytes(bytes_64, byteorder=KZG_ENDIANNESS) % BN254_BLS_MODULUS
-        bytes_32 = bytearray(scalar.to_bytes(BYTES_PER_FIELD_ELEMENT, byteorder=KZG_ENDIANNESS))
+        bytes_32 = bytes_64[0:32]
 
         # 0 padding for 1st byte of 32 byte word
         bytes_32[0] = 0
