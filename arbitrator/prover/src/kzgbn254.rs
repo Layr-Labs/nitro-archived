@@ -1,7 +1,10 @@
 
 use crate::utils::Bytes32;
+use ark_ec::AffineRepr;
 use kzgbn254::{
-    kzg::Kzg, blob::Blob, consts::FIELD_ELEMENTS_PER_BLOB,
+    kzg::Kzg,
+    blob::Blob,
+    helpers::{remove_empty_byte_from_padded_bytes, set_bytes_canonical_manual}
 };
 use eyre::{ensure, Result, WrapErr};
 use ark_bn254::{Fr, G1Affine, G1Projective, G2Affine};
@@ -12,8 +15,8 @@ use std::{convert::TryFrom, io::Write};
 use hex::decode;
 use ark_std::{ops::Mul, ops::Add};
 use ark_serialize::CanonicalSerialize;
-use ark_ec::{Group, VariableBaseMSM};
 use ark_ff::{PrimeField, Field};
+use ark_ff::BigInteger256;
 
 struct HexBytesParser;
 
@@ -36,22 +39,34 @@ impl<'de, const N: usize> serde_with::DeserializeAs<'de, [u8; N]> for HexBytesPa
 }
 
 lazy_static::lazy_static! {
+
+    // note that we are loading 3000 for testing purposes atm, but for production use these values:
+    // g1 and g2 points from the operator setup guide
+    // srs_order = 268435456
+    // srs_points_to_load = 131072
+
     pub static ref KZG: kzgbn254::kzg::Kzg = kzgbn254::kzg::Kzg::setup(
-        "src/test-files/g1.point", 
-        "src/test-files/g2.point",
+        "./arbitrator/prover/src/test-files/g1.point", 
+        "./arbitrator/prover/src/test-files/g2.point",
+        "./arbitrator/prover/src/test-files/g2.point.powerOf2",
+        3000,
         3000
     ).unwrap();
 
     // modulus for the underlying field F_r of the elliptic curve
+    // see https://docs.eigenlayer.xyz/eigenda/integrations-guides/dispersal/blob-serialization-requirements
     pub static ref BLS_MODULUS: BigUint = "21888242871839275222246405745257275088548364400416034343698204186575808495617".parse().unwrap();
 
-    pub static ref ROOT_OF_UNITY: BigUint = {
-        // order 2^28 for BN254
-        let root: BigUint = "19103219067921713944291392827692070036145651957329286315305642004821462161904".parse().unwrap();
+    // pub static ref ROOT_OF_UNITY: BigUint = {
+    //     // order 2^28 for BN254
+    //     let root: BigUint = "19103219067921713944291392827692070036145651957329286315305642004821462161904".parse().unwrap();
 
-        let exponent = (1_u64 << 28) / (FIELD_ELEMENTS_PER_BLOB as u64);
-        root.modpow(&BigUint::from(exponent), &BLS_MODULUS)
-    };
+    //     let exponent = (1_u64 << 28) / (FIELD_ELEMENTS_PER_BLOB as u64);
+    //     root.modpow(&BigUint::from(exponent), &BLS_MODULUS)
+    // };
+
+    // (2*1024*1024)/32 = 65536
+    pub static ref FIELD_ELEMENTS_PER_BLOB: usize = 65536;
 }
 
 /// Creates a KZG preimage proof consumable by the point evaluation precompile.
@@ -62,99 +77,108 @@ pub fn prove_kzg_preimage_bn254(
     out: &mut impl Write,
 ) -> Result<()> {
 
-    // // // we probably want to unpad this huh
-    // let blob = kzgbn254::blob::Blob::from_bytes_and_pad(preimage);
+    let mut kzg = KZG.clone();
 
-    // let commitment = KZG.blob_to_kzg_commitment(&blob)?;
+    // console log the preimage as a hex string
+    println!("Preimage: {:?}", hex::encode(preimage));
 
-    // let mut commitment_bytes = Vec::new();
-    // commitment.serialize_uncompressed(&mut commitment_bytes).unwrap();
+    // console log the preimage as a string
+    println!("Preimage: {:?}", preimage);
 
-    // let mut expected_hash: Bytes32 = Sha256::digest(&*commitment_bytes).into();
-    // expected_hash[0] = 1;
-    // ensure!(
-    //     hash == expected_hash,
-    //     "Trying to prove versioned hash {} preimage but recomputed hash {}",
-    //     hash,
-    //     expected_hash,
-    // );
+    // expand the roots of unity, should work as long as it's longer than chunk length and chunks
+    // from my understanding the data_setup_mins pads both min_chunk_len and min_num_chunks to 
+    // the next power of 2 so we can load a max of 2048 from the test values here
+    // in production need to set these values based on the actual preimage data
+    // hypothesis is that the number of 32 byte chunks in the preimage will be enough and chunk length will be 32
+    kzg.data_setup_mins(1, 2048)?;
 
-    // // we can't enture that offset is 32-byte aligned, because we don't know the size of the preimage, we will need to encode preimage length into this later
-    // // ensure!(
-    // //     offset % 32 == 0,
-    // //     "Cannot prove blob preimage at unaligned offset {}",
-    // //     offset,
-    // // );
+    // we are expecting the preimage to be unpadded when turned into a blob function so need to unpad it first
+    let unpadded_preimage_vec = remove_empty_byte_from_padded_bytes(preimage);
+    let unpadded_preimage = unpadded_preimage_vec.as_slice();
 
-    // //let offset_usize = usize::try_from(offset)?;
-    // let proving_offset = offset;
-    // // // let proving_past_end = offset_usize >= preimage.len();
-    // // // if proving_past_end {
-    // // //     // Proving any offset proves the length which is all we need here,
-    // // //     // because we're past the end of the preimage.
-    // // //     proving_offset = 0;
-    // // // }
+    // repad it here, TODO: need to ask to change the interface for this
+    let blob = kzgbn254::blob::Blob::from_bytes_and_pad(unpadded_preimage);
+    let blob_polynomial = blob.to_polynomial().unwrap();
+    let blob_commitment = kzg.commit(&blob_polynomial).unwrap();
 
-    // // should this maybe be field elements in our blob instead of in the max size???
-    // // blob.lengthAfterPadding / 32
-    // let exp = (proving_offset / 32).reverse_bits()
-    //     >> (u32::BITS - FIELD_ELEMENTS_PER_BLOB.trailing_zeros());
+    let mut commitment_bytes = Vec::new();
+    blob_commitment.serialize_uncompressed(&mut commitment_bytes).unwrap();
+
+    let mut expected_hash: Bytes32 = Sha256::digest(&*commitment_bytes).into();
+    expected_hash[0] = 1;
+    ensure!(
+        hash == expected_hash,
+        "Trying to prove versioned hash {} preimage but recomputed hash {}",
+        hash,
+        expected_hash,
+    );
+
+    ensure!(
+        offset % 32 == 0,
+        "Cannot prove blob preimage at unaligned offset {}",
+        offset,
+    );
+
+    //let offset_usize = usize::try_from(offset)?;
+    let proving_offset = offset;
+
+    // address proving past end edge case later
+    // let proving_past_end = offset_usize >= preimage.len();
+    // if proving_past_end {
+    //     // Proving any offset proves the length which is all we need here,
+    //     // because we're past the end of the preimage.
+    //     proving_offset = 0;
+    // }
     
-    // // make sure on finite field
-    // let z = ROOT_OF_UNITY.modpow(&BigUint::from(exp), &BLS_MODULUS);
-    // let z_bytes = z.to_bytes_be();
+    let proving_offset_bytes = proving_offset.to_le_bytes();
+    let mut padded_proving_offset_bytes = [0u8; 32];
+    padded_proving_offset_bytes[32 - proving_offset_bytes.len()..].copy_from_slice(&proving_offset_bytes);
 
-    // // pad to 32
-    // let mut padded_z_bytes = [0u8; 32];
-    // padded_z_bytes[32 - z_bytes.len()..].copy_from_slice(&z_bytes);
+    // in production we will first need to perform an IFFT on the blob data to get the expected y value
+    let mut proven_y = blob.get_blob_data();
+    let offset_usize = offset as usize; // Convert offset to usize
+    proven_y = proven_y[offset_usize..(offset_usize + 32)].to_vec();
 
+    let polynomial = blob.to_polynomial().unwrap();
+    let length: usize = blob.len();
+
+    let proven_y_fr = set_bytes_canonical_manual(&proven_y.as_slice());
     
-    // // ask anup to just give it to me in the proof function later
-    // let mut proven_y = blob.get_blob_data();
-    // let offset_usize = offset as usize; // Convert offset to usize
-    // proven_y = proven_y[offset_usize..(offset_usize + 32)].to_vec();
+    // are there cases where the g2 generator won't be the first element?
+    let g2_generator = kzg.get_g2_points().get(0).unwrap().clone();
+    let z_g2= g2_generator * proven_y_fr;
+    let g2_tau = g2_generator.mul_bigint(BigInteger256::from(2u64));
+    let g2_tau_minus_g2_z = g2_tau - z_g2;
 
-    // let polynomial = blob.to_polynomial().unwrap();
-    // let length: usize = blob.len();
-
-
-
-    // // polynomial, index, roots_of_unity, padded_input_length
-    // let (kzg_proof, error) = kzg.compute_kzg_proof(&polynomial, &z_bytes,,length)
+    let mut g2_tau_minus_g2_z_bytes = Vec::new();
+    g2_tau_minus_g2_z.serialize_compressed(&mut g2_tau_minus_g2_z_bytes).unwrap();
 
 
+    // TODO: ask for interface alignment later
+    let kzg_proof = match kzg.compute_kzg_proof_with_roots_of_unity(&blob_polynomial, offset as u64) {
+        Ok(proof) => proof,
+        Err(err) => return Err(err.into()),
+    };
 
-    // // // let's return this value too???? not sure why not working so get it to align
-    // // // var zG2 bn254.G2Affine
-	// // // zG2.ScalarMultiplication(&G2Gen, zFr.BigInt(&valueBig))
+    let mut kzg_proof_compressed_bytes = Vec::new();
+    kzg_proof.serialize_compressed(&mut kzg_proof_compressed_bytes).unwrap();
 
-    // let g2_generator=  G2Affine::();
-
-    // let z_g2 = g2_generator * proven_y.BigInt(); // anup says this works?
-
-    // // // var xMinusZ bn254.G2Affine
-	// // // xMinusZ.Sub(&G2tau, &zG2)
-
-    // let g2_tau = g2_generator * 2;
-    // let x_minus_z = g2_tau - z_g2;
-
-    // out.write_all(&*hash)?; // hash
-    // out.write_all(&*z_bytes)?;
-    // out.write_all(&*proven_y)?;
-    // out.write_all(&*x_minus_z)?;
-    // out.write_all(&*commitment_bytes)?;
-    // //out.write_all(kzg_proof.to_bytes().as_slice())?;
-    
+    out.write_all(&*hash)?;                                 // hash [:32]
+    out.write_all(&padded_proving_offset_bytes)?;           // evaluation point [32:64]
+    out.write_all(&*proven_y)?;                             // expected output [64:96]
+    out.write_all(g2_tau_minus_g2_z_bytes.as_slice())?;     // g2TauMinusG2z [96:224]
+    out.write_all(&*commitment_bytes)?;                     // kzg commitment [224:288]
+    out.write_all(kzg_proof_compressed_bytes.as_slice())?;  // proof [288:352]
     
 
-    // pre encoded proof data
-    let hex_str = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100757220666174686572732062726f7567687420666f7274682c206f6e2074681db5eb0b7f38e2373003e7ab7b7a2509cc2759214dd255514a9c28bb46cd1201294217923e1ecdd86ec74266a1423cf152f2a54295ae39339673fcd59e1db7292099e357166e69509eea101212adfc3d2ea0254cd5526381756dcc5a942f43762f2b0c30d1fb8b1dc0d8177e44b687fc39d41a8c831665ae1af58b2bebf74b72068bf472ebc0e26c297f8a9257c3f42a38af1e4612b60f6ac64d57dc272d50b1005a4f9eb6b109d60804cbbfa4e54753b4d3b262ef7f8269fb3c2a9939741cbd06f15529acc9d00f89345e4126d6f8c2e03da0e71b718bd4a63d1fbd315cac5c04341e21e9c059641601112f3c97db852dca3a1efffe61c413af70108bc46561";
-    match decode(hex_str) {
-        Ok(bytes) => {
-            out.write_all(&bytes)?;
-        },
-        Err(e) => println!("Error decoding hex string: {}", e),
-    }
+    // // pre encoded proof data
+    // let hex_str = "0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100757220666174686572732062726f7567687420666f7274682c206f6e2074681db5eb0b7f38e2373003e7ab7b7a2509cc2759214dd255514a9c28bb46cd1201294217923e1ecdd86ec74266a1423cf152f2a54295ae39339673fcd59e1db7292099e357166e69509eea101212adfc3d2ea0254cd5526381756dcc5a942f43762f2b0c30d1fb8b1dc0d8177e44b687fc39d41a8c831665ae1af58b2bebf74b72068bf472ebc0e26c297f8a9257c3f42a38af1e4612b60f6ac64d57dc272d50b1005a4f9eb6b109d60804cbbfa4e54753b4d3b262ef7f8269fb3c2a9939741cbd06f15529acc9d00f89345e4126d6f8c2e03da0e71b718bd4a63d1fbd315cac5c04341e21e9c059641601112f3c97db852dca3a1efffe61c413af70108bc46561";
+    // match decode(hex_str) {
+    //     Ok(bytes) => {
+    //         out.write_all(&bytes)?;
+    //     },
+    //     Err(e) => println!("Error decoding hex string: {}", e),
+    // }
 
     Ok(())
 }

@@ -592,33 +592,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "da-integration-rust"
-version = "0.1.0"
-source = "git+https://github.com/afkbyte/da-integration-rust.git?branch=main#5cc9b5b8d68b3a358831d8ec756cb785409aa3c9"
-dependencies = [
- "ark-bn254",
- "ark-ec",
- "ark-ff",
- "ark-poly",
- "ark-serialize",
- "ark-std",
- "byteorder",
- "crossbeam-channel",
- "directories",
- "hex-literal",
- "memmap2 0.9.4",
- "num-bigint",
- "num-traits",
- "num_cpus",
- "rand",
- "rayon",
- "sha2 0.10.8",
- "tracing",
- "tracing-subscriber",
- "ureq",
-]
-
-[[package]]
 name = "darling"
 version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1173,15 +1146,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "memmap2"
-version = "0.9.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe751422e4a8caa417e13c3ea66452215d7d63e19e604f4980461212f3ae1322"
-dependencies = [
- "libc",
-]
-
-[[package]]
 name = "memoffset"
 version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1579,7 +1543,6 @@ dependencies = [
  "bincode",
  "brotli2",
  "c-kzg",
- "da-integration-rust",
  "digest 0.9.0",
  "eyre",
  "fnv",
@@ -1590,6 +1553,7 @@ dependencies = [
  "nom-leb128",
  "num",
  "rayon",
+ "rust-kzg-bn254",
  "rustc-demangle",
  "serde",
  "serde_json",
@@ -1805,6 +1769,32 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.76",
+]
+
+[[package]]
+name = "rust-kzg-bn254"
+version = "0.1.0"
+source = "git+https://github.com/Layr-Labs/rust-kzg-bn254.git?branch=master#f4475f1ee818192e71d2ed2f4f958f950ec3c5b5"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff",
+ "ark-poly",
+ "ark-serialize",
+ "ark-std",
+ "byteorder",
+ "crossbeam-channel",
+ "directories",
+ "hex-literal",
+ "num-bigint",
+ "num-traits",
+ "num_cpus",
+ "rand",
+ "rayon",
+ "sha2 0.10.8",
+ "tracing",
+ "tracing-subscriber",
+ "ureq",
 ]
 
 [[package]]
@@ -2520,7 +2510,7 @@ dependencies = [
  "enumset",
  "lazy_static",
  "leb128",
- "memmap2 0.5.7",
+ "memmap2",
  "more-asserts",
  "region",
  "rustc-demangle",
