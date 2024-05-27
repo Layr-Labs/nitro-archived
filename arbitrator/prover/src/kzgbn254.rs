@@ -155,8 +155,8 @@ pub fn prove_kzg_preimage_bn254(
     let g2_tau = g2_generator.mul_bigint(BigInteger256::from(2u64));
     let g2_tau_minus_g2_z = g2_tau - z_g2;
 
-    let mut g2_tau_minus_g2_z_bytes = Vec::new();
-    g2_tau_minus_g2_z.serialize_uncompressed(&mut g2_tau_minus_g2_z_bytes).unwrap();
+    let mut g2_tau_minus_g2_z_uncompressed_bytes = Vec::new();
+    g2_tau_minus_g2_z.serialize_uncompressed(&mut g2_tau_minus_g2_z_uncompressed_bytes).unwrap();
 
     // required roots of unity are the first polynomial length roots in the expanded set
     let roots_of_unity = kzg.get_expanded_roots_of_unity();
@@ -167,16 +167,16 @@ pub fn prove_kzg_preimage_bn254(
         Err(err) => return Err(err.into()),
     };
 
-    let mut kzg_proof_compressed_bytes = Vec::new();
-    kzg_proof.serialize_uncompressed(&mut kzg_proof_compressed_bytes).unwrap();
+    let mut kzg_proof_uncompressed_bytes = Vec::new();
+    kzg_proof.serialize_uncompressed(&mut kzg_proof_uncompressed_bytes).unwrap();
 
     //print the length of each byte array written
     println!("hash length: {}", hash.len());
     println!("padded_proving_offset_bytes length: {}", padded_proving_offset_bytes.len());
     println!("proven_y length: {}", proven_y.len());
-    println!("g2_tau_minus_g2_z_bytes length: {}", g2_tau_minus_g2_z_bytes.len());
+    println!("g2_tau_minus_g2_z_uncompressed_bytes length: {}", g2_tau_minus_g2_z_uncompressed_bytes.len());
     println!("commitment_bytes length: {}", commitment_bytes.len());
-    println!("kzg_proof_compressed_bytes length: {}", kzg_proof_compressed_bytes.len());
+    println!("kzg_proof_uncompressed_bytes length: {}", kzg_proof_uncompressed_bytes.len());
 
     out.write_all(&*hash)?;                                              // hash [:32]
     out.write_all(&padded_proving_offset_bytes)?;                        // evaluation point [32:64]
