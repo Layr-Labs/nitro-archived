@@ -1468,6 +1468,7 @@ dependencies = [
  "nom",
  "nom-leb128",
  "num",
+ "num-bigint",
  "rayon",
  "rust-kzg-bn254",
  "rustc-demangle",
