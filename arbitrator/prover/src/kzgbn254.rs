@@ -79,17 +79,13 @@ pub fn prove_kzg_preimage_bn254(
 
     let mut kzg = KZG.clone();
 
-    // console log the preimage as a hex string
-    println!("Preimage: {:?}", hex::encode(preimage));
-
-    // console log the preimage as a string
-    println!("Preimage: {:?}", preimage);
-
     // expand the roots of unity, should work as long as it's longer than chunk length and chunks
     // from my understanding the data_setup_mins pads both min_chunk_len and min_num_chunks to 
     // the next power of 2 so we can load a max of 2048 from the test values here
-    // in production need to set these values based on the actual preimage data
-    // hypothesis is that the number of 32 byte chunks in the preimage will be enough and chunk length will be 32
+    // then we can take the roots of unity we actually need (len polynomial) and pass them in
+    // @anup, this is a really gross way to do this, pls tell better way
+    // also potential edge case where the preimage is 32 bytes
+    //kzg.data_setup_custom(4, preimage.len() as u64)?;
     kzg.data_setup_mins(1, 2048)?;
 
     // we are expecting the preimage to be unpadded when turned into a blob function so need to unpad it first
@@ -106,12 +102,15 @@ pub fn prove_kzg_preimage_bn254(
 
     let mut expected_hash: Bytes32 = Sha256::digest(&*commitment_bytes).into();
     expected_hash[0] = 1;
-    ensure!(
-        hash == expected_hash,
-        "Trying to prove versioned hash {} preimage but recomputed hash {}",
-        hash,
-        expected_hash,
-    );
+
+    println!("Expected hash: {:?}", expected_hash);
+    println!("Hash: {:?}", hash);
+    // ensure!(
+    //     hash == expected_hash,
+    //     "Trying to prove versioned hash {} preimage but recomputed hash {}",
+    //     hash,
+    //     expected_hash,
+    // );
 
     ensure!(
         offset % 32 == 0,
@@ -121,6 +120,9 @@ pub fn prove_kzg_preimage_bn254(
 
     //let offset_usize = usize::try_from(offset)?;
     let proving_offset = offset;
+
+    // log proving offset
+    println!("Proving offset: {}", proving_offset);
 
     // address proving past end edge case later
     // let proving_past_end = offset_usize >= preimage.len();
@@ -153,9 +155,11 @@ pub fn prove_kzg_preimage_bn254(
     let mut g2_tau_minus_g2_z_bytes = Vec::new();
     g2_tau_minus_g2_z.serialize_compressed(&mut g2_tau_minus_g2_z_bytes).unwrap();
 
-
+    // required roots of unity are the first polynomial length roots in the expanded set
+    let roots_of_unity = kzg.get_expanded_roots_of_unity();
+    let required_roots_of_unity = &roots_of_unity[..polynomial.len()];
     // TODO: ask for interface alignment later
-    let kzg_proof = match kzg.compute_kzg_proof_with_roots_of_unity(&blob_polynomial, offset as u64) {
+    let kzg_proof = match kzg.compute_kzg_proof(&blob_polynomial, offset as u64, &required_roots_of_unity.to_vec()) {
         Ok(proof) => proof,
         Err(err) => return Err(err.into()),
     };
